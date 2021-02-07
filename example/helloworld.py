@@ -11,8 +11,8 @@ class BaseExample(PGE.PixelGameEngine):
         return True
 
     def HandleUserInput(self):
-        # Hit Q to quit
-        if self.GetKey(PGE.Key.Q).bHeld:
+        # Hit ESC to quit
+        if self.GetKey(PGE.Key.ESCAPE).bHeld:
             self.uQuit = True
 
     def OnUserUpdate(self, f):

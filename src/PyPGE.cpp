@@ -572,9 +572,6 @@ void def_rcode(py::module& m)
 
 void def_Pixel(py::module& m)
 {
-    /* ==========
-     Pixel struct
-    ========== */
     py::class_<olc::Pixel> pixel(m, "Pixel");
     // Constructor
     pixel.def(py::init<uint8_t, uint8_t, uint8_t, uint8_t>(),
@@ -654,7 +651,6 @@ void def_Pixel(py::module& m)
 
 void def_Key(py::module& m)
 {
-    // enum Key
     py::enum_<olc::Key>(m, "Key")
         .value("NONE", olc::Key::NONE)
         .value("A", olc::Key::A)
@@ -813,7 +809,9 @@ void def_vX2d(py::module& m, const std::string & name)
       .def(+py::self)
       .def(-py::self)
       .def("__repr__", &olc::v2d_generic<T>::str)
-      .def("str", &olc::v2d_generic<T>::str);
+      .def("str", &olc::v2d_generic<T>::str)
+      .def_readwrite("x", &olc::v2d_generic<T>::x)
+      .def_readwrite("y", &olc::v2d_generic<T>::y);
 }
 
 void def_HWButton(py::module& m)

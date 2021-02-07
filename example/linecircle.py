@@ -32,7 +32,7 @@ class Example(PGE.PixelGameEngine):
             if radius > 1:
                 radius = np.random.randint(1, radius)
             self.FillCircle(x, y, radius, p)
-        return not self.GetKey(PGE.Key.Q).bHeld
+        return not self.GetKey(PGE.Key.ESCAPE).bHeld
 
 if __name__ == "__main__":
     demo = Example()
