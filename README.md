@@ -17,9 +17,10 @@ As the main bottleneck lies at the Python loop, the simpliest way to eliminate t
 Requirements
 ------------
 
-* Compiler that supports C++19
+* Compiler that supports C++17
 * Python 3.5+
-* Numpy >= 1.7.0
+* Numpy >= 1.7.0 (used in examples)
+* [Ubuntu] `libx11-dev libglu1-mesa-dev`
 
 Installation
 ------------
