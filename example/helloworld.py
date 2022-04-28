@@ -1,5 +1,6 @@
 import PyPGE as PGE
 import numpy as np
+import random
 
 class BaseExample(PGE.PixelGameEngine):
     def __init__(self):
@@ -46,7 +47,7 @@ class Example2(BaseExample):
             for y in range(self.ScreenHeight()):
                 self.Draw(x, y, *buf[x, y])
 
-# ~2000 FPS
+# ~1300 FPS
 
 class Example3(BaseExample):
     def Update(self, f):
@@ -55,7 +56,12 @@ class Example3(BaseExample):
             dtype=np.uint8)
         self.DrawArea(0, 0, buf)
 
+class Example4(BaseExample):
+    def Update(self, f):
+        buf = random.randbytes(self.ScreenHeight() * self.ScreenWidth() * 3)
+        self.DrawArea(0, 0, self.ScreenHeight(), self.ScreenWidth(), 3, self.buf)
+
 if __name__ == "__main__":
-    demo = Example3()
+    demo = Example4()
     if demo.Construct(256, 240, 2, 2):
         demo.Start()

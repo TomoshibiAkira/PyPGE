@@ -24,18 +24,9 @@ public:
         return olc::PixelGameEngine::Draw(x, y, p);
     }
 
-    bool PyDrawArea(int32_t x, int32_t y, const py::array_t<uint8_t>& pm)
+    void _drawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const uint8_t* data)
     {
-        py::buffer_info info = pm.request();
-
-        uint8_t* data = (uint8_t*)info.ptr;
-        uint32_t aw = (uint32_t)info.shape[1];
-        uint32_t ah = (uint32_t)info.shape[0];
-
-        if (info.ndim != 3)
-            throw std::runtime_error ("ndim should be 3");
-
-        if (info.shape[2] == 3)
+        if (c == 3)
         {
             for (uint32_t i = 0; i < ah; i++)
                 for (uint32_t j = 0; j < aw; j++)
@@ -50,7 +41,7 @@ public:
                         ));
                 }
         }
-        else if (info.shape[2] == 4)
+        else if (c == 4)
         {
             for (uint32_t i = 0; i < ah; i++)
                 for (uint32_t j = 0; j < aw; j++)
@@ -68,6 +59,27 @@ public:
         }
         else
             throw std::runtime_error ("only support 3-channel RGB or 4-channel RGBA");
+    }
+
+    bool PyDrawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytes& data)
+    {
+        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string_view(data).data());
+        return true;
+    }
+
+    bool PyDrawArea(int32_t x, int32_t y, const py::array_t<uint8_t>& pm)
+    {
+        py::buffer_info info = pm.request();
+
+        uint8_t* data = (uint8_t*)info.ptr;
+        int32_t aw = (int32_t)info.shape[1];
+        int32_t ah = (int32_t)info.shape[0];
+        int32_t c = (int32_t)info.shape[2];
+
+        if (info.ndim != 3)
+            throw std::runtime_error ("ndim should be 3");
+
+        _drawArea(x, y, ah, aw, c, data);
         return true;
     }
 };
@@ -154,7 +166,14 @@ void def_PGE(py::module& m)
             py::arg("g"),
             py::arg("b"),
             py::arg("a") = olc::nDefaultAlpha)
-        .def("DrawArea", &PyPGE::PyDrawArea,
+        .def("DrawArea", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytes&>(&PyPGE::PyDrawArea),
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("h"),
+            py::arg("w"),
+            py::arg("c"),
+            py::arg("data"))
+        .def("DrawArea", py::overload_cast<int32_t, int32_t, const py::array_t<uint8_t>&>(&PyPGE::PyDrawArea),
             "Draws an area with a pixel buffer (Experimental)",
             py::arg("x"),
             py::arg("y"),
