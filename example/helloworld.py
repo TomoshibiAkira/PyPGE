@@ -7,6 +7,7 @@ class BaseExample(PGE.PixelGameEngine):
         super().__init__()
         self.sAppName = "Hello World"
         self.uQuit = False
+        self.eQuit = False
 
     def OnUserCreate(self):
         return True
@@ -19,7 +20,7 @@ class BaseExample(PGE.PixelGameEngine):
     def OnUserUpdate(self, f):
         self.HandleUserInput()
         self.Update(f)
-        return not self.uQuit
+        return not self.uQuit and not self.eQuit
 
     def Update(self, f):
         return
@@ -61,7 +62,16 @@ class Example4(BaseExample):
         buf = random.randbytes(self.ScreenHeight() * self.ScreenWidth() * 3)
         self.DrawArea(0, 0, self.ScreenHeight(), self.ScreenWidth(), 3, self.buf)
 
+import sys, traceback
+class ExampleException(BaseExample):
+    def Update(self, f):
+        try:
+            raise ValueError("Test")
+        except:
+            traceback.print_exception(*sys.exc_info())  
+            self.eQuit = True          
+
 if __name__ == "__main__":
-    demo = Example4()
+    demo = ExampleException()
     if demo.Construct(256, 240, 2, 2):
         demo.Start()
