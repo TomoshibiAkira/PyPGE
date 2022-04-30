@@ -24,16 +24,110 @@ public:
         return olc::PixelGameEngine::Draw(x, y, p);
     }
 
-    void _drawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const uint8_t* data)
+    void _drawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const uint8_t* data, int32_t scale, int32_t flip)
     {
+        if (c == 3)
+        {
+            for (uint32_t i = 0; i < ah; i++)
+                for (uint32_t si = 0; si < scale; si++) {
+                    uint32_t py = (flip & olc::Sprite::Flip::VERT) ? ah - i - 1 : i;
+                    py = y + py * scale + si;
+                    for (uint32_t j = 0; j < aw; j++) {
+                        uint32_t pos = i * ah + j;
+                        for (uint32_t sj = 0; sj < scale; sj++)
+                        {
+                            uint32_t px = (flip & olc::Sprite::Flip::HORIZ) ? aw - j - 1 : j;
+                            px = x + j * scale + sj;
+                            olc::PixelGameEngine::Draw(px, py,
+                                olc::Pixel(
+                                    data[3 * pos],
+                                    data[3 * pos+1],
+                                    data[3 * pos+2]
+                                ));
+                        }
+                    }
+                }
+        }
+        else if (c == 4)
+        {
+            for (uint32_t i = 0; i < ah; i++)
+                for (uint32_t si = 0; si < scale; si++) {
+                    uint32_t py = (flip & olc::Sprite::Flip::VERT) ? ah - i - 1 : i;
+                    py = y + py * scale + si;
+                    for (uint32_t j = 0; j < aw; j++) {
+                        uint32_t pos = i * ah + j;
+                        for (uint32_t sj = 0; sj < scale; sj++)
+                        {
+                            uint32_t px = (flip & olc::Sprite::Flip::HORIZ) ? aw - j - 1 : j;
+                            px = x + j * scale + sj;
+                            olc::PixelGameEngine::Draw(px, py,
+                                olc::Pixel(
+                                    data[4 * pos],
+                                    data[4 * pos+1],
+                                    data[4 * pos+2],
+                                    data[4 * pos+3]
+                                ));
+                        }
+                    }
+                }
+        }
+        else
+            throw std::runtime_error ("only support 3-channel RGB or 4-channel RGBA");
+    }
+
+    bool PyDrawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytearray& data, int32_t scale, int32_t flip)
+    {
+        // pybind11::bytearray does not support std::string_view yet in 2.9.2. This feature has already been implemented and merged,
+        // but didn't make to 2.9.2's release (https://github.com/pybind/pybind11/pull/3707). 2.9.3 maybe?
+        // As for now, we have to make a copy for the bytearray... oh well.
+        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string(data).data(), scale, flip);
+        return true;
+    }
+
+    bool PyDrawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytes& data, int32_t scale, int32_t flip)
+    {
+        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string_view(data).data(), scale, flip);
+        return true;
+    }
+
+    bool PyDrawArea(int32_t x, int32_t y, const py::array_t<uint8_t>& pm, int32_t scale, int32_t flip)
+    {
+        py::buffer_info info = pm.request();
+
+        uint8_t* data = (uint8_t*)info.ptr;
+        int32_t aw = (int32_t)info.shape[1];
+        int32_t ah = (int32_t)info.shape[0];
+        int32_t c = (int32_t)info.shape[2];
+
+        if (info.ndim != 3)
+            throw std::runtime_error ("ndim should be 3");
+
+        _drawArea(x, y, ah, aw, c, data, scale, flip);
+        return true;
+    }
+
+    /* -----------------------------------------------------------------------------------------
+    DrawSprite without actually construct the sprite in Python. The main reason that the
+    performance drops is probably the extra buffer copying.
+    Since olc::DrawSprite also use olc::Draw, just use DrawArea instead. It is completely
+    compatible with DrawSprite (without constructing the Sprite object ofc).
+    There is a way to do this without copying if uint32_t and olc::Pixel can be easily converted.
+    In Python code one can construct a list of int (32bit) to represent RGBA, exactly like 
+    olc::Sprite's underlying buffer (pColData). Once the list is converted into vector<int> by
+    pybind11, here we can use an extension of olc::Sprite and take the vector as the underlying
+    buffer.
+    But for now, it seems olc::Pixel is its own thing...
+    -------------------------------------------------------------------------------------------- */
+    void _pyDrawSprite(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const uint8_t* data, uint32_t scale, uint8_t flip)
+    {
+        olc::Sprite spr(aw, ah);
         if (c == 3)
         {
             for (uint32_t i = 0; i < ah; i++)
                 for (uint32_t j = 0; j < aw; j++)
                 {
                     uint32_t pos = i * ah + j;
-                    uint32_t px = x + j, py = y + i;
-                    olc::PixelGameEngine::Draw(px, py,
+                    spr.SetPixel(j, i,
                         olc::Pixel(
                             data[3 * pos],
                             data[3 * pos+1],
@@ -47,8 +141,7 @@ public:
                 for (uint32_t j = 0; j < aw; j++)
                 {
                     uint32_t pos = i * ah + j;
-                    uint32_t px = x + j, py = y + i;
-                    olc::PixelGameEngine::Draw(px, py,
+                    spr.SetPixel(j, i,
                         olc::Pixel(
                             data[4 * pos],
                             data[4 * pos+1],
@@ -59,15 +152,22 @@ public:
         }
         else
             throw std::runtime_error ("only support 3-channel RGB or 4-channel RGBA");
+        DrawSprite(x, y, &spr, scale, flip);
     }
 
-    bool PyDrawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytes& data)
+    bool PyDrawSprite(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytes& data, int32_t scale, int32_t flip)
     {
-        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string_view(data).data());
+        _pyDrawSprite(x, y, ah, aw, c, (const uint8_t *)std::string_view(data).data(), scale, flip);
         return true;
     }
 
-    bool PyDrawArea(int32_t x, int32_t y, const py::array_t<uint8_t>& pm)
+    bool PyDrawSprite(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytearray& data, int32_t scale, int32_t flip)
+    {
+        _pyDrawSprite(x, y, ah, aw, c, (const uint8_t *)std::string(data).data(), scale, flip);
+        return true;
+    }
+
+    bool PyDrawSprite(int32_t x, int32_t y, const py::array_t<uint8_t>& pm, int32_t scale, int32_t flip)
     {
         py::buffer_info info = pm.request();
 
@@ -79,7 +179,7 @@ public:
         if (info.ndim != 3)
             throw std::runtime_error ("ndim should be 3");
 
-        _drawArea(x, y, ah, aw, c, data);
+        _pyDrawSprite(x, y, ah, aw, c, data, scale, flip);
         return true;
     }
 };
@@ -166,18 +266,62 @@ void def_PGE(py::module& m)
             py::arg("g"),
             py::arg("b"),
             py::arg("a") = olc::nDefaultAlpha)
-        .def("DrawArea", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytes&>(&PyPGE::PyDrawArea),
+        .def("DrawArea", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytes&, int32_t, int32_t>(&
+        PyPGE::PyDrawArea),
+            "Draws an sprite with a bytes-based buffer but faster",
             py::arg("x"),
             py::arg("y"),
             py::arg("h"),
             py::arg("w"),
             py::arg("c"),
-            py::arg("data"))
-        .def("DrawArea", py::overload_cast<int32_t, int32_t, const py::array_t<uint8_t>&>(&PyPGE::PyDrawArea),
-            "Draws an area with a pixel buffer (Experimental)",
+            py::arg("data"),
+            py::arg("scale") = 1,
+            py::arg("flip") = olc::Sprite::Flip::NONE)
+        .def("DrawArea", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytearray&, int32_t, int32_t>(&PyPGE::PyDrawArea),
+            "Draws an sprite with a bytearray-based buffer but faster",
             py::arg("x"),
             py::arg("y"),
-            py::arg("pm"));
+            py::arg("h"),
+            py::arg("w"),
+            py::arg("c"),
+            py::arg("data"),
+            py::arg("scale") = 1,
+            py::arg("flip") = olc::Sprite::Flip::NONE)
+        .def("DrawArea", py::overload_cast<int32_t, int32_t, const py::array_t<uint8_t>&, int32_t, int32_t>(&PyPGE::PyDrawArea),
+            "Draws an sprite with a numpy-based buffer but faster",
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("pm"),
+            py::arg("scale") = 1,
+            py::arg("flip") = olc::Sprite::Flip::NONE)
+        .def("DrawSprite", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytes&, int32_t, int32_t>(&
+        PyPGE::PyDrawSprite),
+            "Draws an sprite with a bytes-based buffer",
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("h"),
+            py::arg("w"),
+            py::arg("c"),
+            py::arg("data"),
+            py::arg("scale") = 1,
+            py::arg("flip") = olc::Sprite::Flip::NONE)
+        .def("DrawSprite", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytearray&, int32_t, int32_t>(&PyPGE::PyDrawSprite),
+            "Draws an sprite with a bytearray-based buffer",
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("h"),
+            py::arg("w"),
+            py::arg("c"),
+            py::arg("data"),
+            py::arg("scale") = 1,
+            py::arg("flip") = olc::Sprite::Flip::NONE)
+        .def("DrawSprite", py::overload_cast<int32_t, int32_t, const py::array_t<uint8_t>&, int32_t, int32_t>(&PyPGE::PyDrawSprite),
+            "Draws an sprite with a numpy-based buffer",
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("pm"),
+            py::arg("scale") = 1,
+            py::arg("flip") = olc::Sprite::Flip::NONE);
 
 
     PGE.def_readwrite("sAppName", &PGE::sAppName);

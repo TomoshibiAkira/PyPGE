@@ -12,7 +12,7 @@ Currently it simply exposes all core classes from PGE as Python classes, which i
 
 The perfect example is the original PGE [Hello World Example](https://github.com/OneLoneCoder/olcPixelGameEngine/wiki#example-olcpixelengine-hello-world). The extensive call (one call per pixel!) of `Pixel` construction and `Draw` function in the loop serverly impacts the performance of PGE on Python. You can find the comparison in `example/helloworld.py`.
 
-As the main bottleneck lies at the Python loop, the simpliest way to eliminate them is to write some new bindings that support batch operations. Since pybind11 supports Numpy pretty well, parameters from the original PGE functions like positions and sizes could be directly saved as `np.ndarray` and passed into the bindings. `PGE::PyDrawArea` in the `PyPGE.cpp` is a good example to solve the performance problem from the Hello World example. If the `numpy` dependency is not something you like, `PGE::PyDrawArea` also supports `bytearray` and `bytes` objects.
+As the main bottleneck lies at the Python loop, the simpliest way to eliminate them is to write some new bindings that support batch operations. Since pybind11 supports Numpy pretty well, parameters from the original PGE functions like positions and sizes could be directly saved as `np.ndarray` and passed into the bindings. `PGE::PyDrawArea` in the `PyPGE.cpp` is a good example to solve the performance problem from the Hello World example. If the `numpy` dependency is not something you like, `PGE::PyDrawArea` also supports `bytearray` and `bytes` objects. It is also faster than the original `olc::DrawSprite` (see `helloworld.py` for more info).
 
 Debugging
 ---------
