@@ -19,7 +19,7 @@ Debugging
 
 The `olcPixelGameEngine` uses `std::thread` for the game engine thread to handle frame updates / user inputs, etc. This would mean that any exception in that thread (e.g. some assertion in your python `OnUserUpdate()` function) CANNOT be propagated back to the main thread, and the whole program would hang without giving any information about the exception. This makes debugging the program a headache.
 
-One way to workaround is to handle the exception in the `OnUserUpdate()` function a.k.a. wrapping the whole function body in a try/except clause and print out exception exclusively (see `ExampleException` in `helloworld.py`).
+One way to workaround is to handle the exception in the `OnUserUpdate()` function a.k.a. wrapping the whole function body in a try/except clause and print out exception exclusively (see `BaseExample` in `helloworld.py`).
 
 Requirements
 ------------
