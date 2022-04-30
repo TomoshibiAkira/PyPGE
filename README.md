@@ -26,6 +26,7 @@ Requirements
 
 * Compiler that supports C++17
 * Python 3.5+
+* pybind11 >= 2.7.0
 * Numpy >= 1.7.0 (only used in examples)
 * [Ubuntu] `libx11-dev libglu1-mesa-dev`
 
