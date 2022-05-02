@@ -24,20 +24,35 @@ public:
         return olc::PixelGameEngine::Draw(x, y, p);
     }
 
-    void _drawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const uint8_t* data, int32_t scale, int32_t flip)
+    bool PyDrawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytes& data, int32_t ox, int32_t oy, int32_t w, int32_t h, int32_t scale, int32_t flip)
+    {
+        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string_view(data).data(), ox, oy, w, h, scale, flip);
+        return true;
+    }
+
+    bool PyDrawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytearray& data, int32_t ox, int32_t oy, int32_t w, int32_t h, int32_t scale, int32_t flip)
+    {
+        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string(data).data(), ox, oy, w, h, scale, flip);
+        return true;
+    }
+
+    void _drawArea(int32_t x, int32_t y, 
+        int32_t ah, int32_t aw, int32_t c, const uint8_t* data,
+        int32_t ox, int32_t oy, int32_t w, int32_t h,
+        int32_t scale, int32_t flip)
     {
         if (c == 3)
         {
-            for (uint32_t i = 0; i < ah; i++)
+            for (uint32_t i = oy; i < oy + h; i++)
                 for (uint32_t si = 0; si < scale; si++) {
                     uint32_t py = (flip & olc::Sprite::Flip::VERT) ? ah - i - 1 : i;
-                    py = y + py * scale + si;
-                    for (uint32_t j = 0; j < aw; j++) {
-                        uint32_t pos = i * ah + j;
+                    py = y + (py - oy) * scale + si;
+                    for (uint32_t j = ox; j < ox + w; j++) {
+                        uint32_t pos = i * aw + j;
                         for (uint32_t sj = 0; sj < scale; sj++)
                         {
                             uint32_t px = (flip & olc::Sprite::Flip::HORIZ) ? aw - j - 1 : j;
-                            px = x + j * scale + sj;
+                            px = x + (px - ox) * scale + sj;
                             olc::PixelGameEngine::Draw(px, py,
                                 olc::Pixel(
                                     data[3 * pos],
@@ -50,16 +65,16 @@ public:
         }
         else if (c == 4)
         {
-            for (uint32_t i = 0; i < ah; i++)
+            for (uint32_t i = oy; i < oy + h; i++)
                 for (uint32_t si = 0; si < scale; si++) {
                     uint32_t py = (flip & olc::Sprite::Flip::VERT) ? ah - i - 1 : i;
-                    py = y + py * scale + si;
-                    for (uint32_t j = 0; j < aw; j++) {
-                        uint32_t pos = i * ah + j;
+                    py = y + (py - oy) * scale + si;
+                    for (uint32_t j = ox; j < ox + w; j++) {
+                        uint32_t pos = i * aw + j;
                         for (uint32_t sj = 0; sj < scale; sj++)
                         {
                             uint32_t px = (flip & olc::Sprite::Flip::HORIZ) ? aw - j - 1 : j;
-                            px = x + j * scale + sj;
+                            px = x + (px - ox) * scale + sj;
                             olc::PixelGameEngine::Draw(px, py,
                                 olc::Pixel(
                                     data[4 * pos],
@@ -80,13 +95,13 @@ public:
         // pybind11::bytearray does not support std::string_view yet in 2.9.2. This feature has already been implemented and merged,
         // but didn't make to 2.9.2's release (https://github.com/pybind/pybind11/pull/3707). 2.9.3 maybe?
         // As for now, we have to make a copy for the bytearray... oh well.
-        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string(data).data(), scale, flip);
+        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string(data).data(), 0, 0, aw, ah, scale, flip);
         return true;
     }
 
     bool PyDrawArea(int32_t x, int32_t y, int32_t ah, int32_t aw, int32_t c, const py::bytes& data, int32_t scale, int32_t flip)
     {
-        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string_view(data).data(), scale, flip);
+        _drawArea(x, y, ah, aw, c, (const uint8_t *)std::string_view(data).data(), 0, 0, aw, ah, scale, flip);
         return true;
     }
 
@@ -102,7 +117,7 @@ public:
         if (info.ndim != 3)
             throw std::runtime_error ("ndim should be 3");
 
-        _drawArea(x, y, ah, aw, c, data, scale, flip);
+        _drawArea(x, y, ah, aw, c, data, 0, 0, aw, ah, scale, flip);
         return true;
     }
 
@@ -266,6 +281,36 @@ void def_PGE(py::module& m)
             py::arg("g"),
             py::arg("b"),
             py::arg("a") = olc::nDefaultAlpha)
+        .def("DrawArea", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytes&, \
+                                            int32_t, int32_t, int32_t, int32_t, int32_t, int32_t>(&PyPGE::PyDrawArea),
+            "Draws an sprite with a bytes-based buffer but faster (partial)",
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("h"),
+            py::arg("w"),
+            py::arg("c"),
+            py::arg("data"),
+            py::arg("ox"),
+            py::arg("oy"),
+            py::arg("w"),
+            py::arg("h"),
+            py::arg("scale") = 1,
+            py::arg("flip") = olc::Sprite::Flip::NONE)
+        .def("DrawArea", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytearray&, \
+                                            int32_t, int32_t, int32_t, int32_t, int32_t, int32_t>(&PyPGE::PyDrawArea),
+            "Draws an sprite with a bytes-based buffer but faster (partial)",
+            py::arg("x"),
+            py::arg("y"),
+            py::arg("h"),
+            py::arg("w"),
+            py::arg("c"),
+            py::arg("data"),
+            py::arg("ox"),
+            py::arg("oy"),
+            py::arg("w"),
+            py::arg("h"),
+            py::arg("scale") = 1,
+            py::arg("flip") = olc::Sprite::Flip::NONE)
         .def("DrawArea", py::overload_cast<int32_t, int32_t, int32_t, int32_t, int32_t, const py::bytes&, int32_t, int32_t>(&
         PyPGE::PyDrawArea),
             "Draws an sprite with a bytes-based buffer but faster",
